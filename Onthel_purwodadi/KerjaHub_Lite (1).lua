@@ -1,5 +1,5 @@
 -- KERJA HUB LITE (TANPA mini game) | Onthel Purwadadi | By Azk & Claude
--- Isi: duit live, auto kurir, TP gerobak, auto layani bakso, AUTO MISI LABU (cari otomatis), CLAIM MEME (manual),
+-- Isi: duit live, auto kurir, TP gerobak, auto layani bakso, CLAIM MEME (manual), MiniGame Hub (execute/salin),
 --      ANTI GAMEPLAY PAUSED, buka/tutup JobGui, delay bisa diatur
 -- Tombol buka/tutup bulat berlogo (bisa digeser), window bisa digeser, animasi buka/tutup, GUI tahan hilang
 -- TARUH DI: StarterPlayer > StarterPlayerScripts (LocalScript) atau jalankan lewat executor
@@ -246,8 +246,8 @@ end
 local function startKerjaHub()
 	local lp = Players.LocalPlayer
 	local kurirOn, baksoOn = false, false
-	local pumpkinOn, antiPause = false, true
-	local kurirRun, pumpkinRun = 0, 0
+	local antiPause = true
+	local kurirRun = 0
 	local pauseJobs = false -- true saat klaim meme (job lain menunggu sebentar)
 	local delayTP, delayAfter = 0.25, 0.2
 	local lastServe = 0
@@ -265,9 +265,41 @@ local function startKerjaHub()
 		PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 10),
 	}, farmPage)
 	local ord = 0
+	local topMode, topOrd = false, -1000 -- topMode: elemen ditaruh paling atas
 	local function nextOrd()
+		if topMode then
+			topOrd = topOrd + 1
+			return topOrd
+		end
 		ord = ord + 1
 		return ord
+	end
+
+	-- FOLDER: tombol lipat/buka; isi folder = semua elemen yang dibuat sesudah mkFolder
+	local currentFolder = nil
+	local function reg(obj)
+		if currentFolder then
+			currentFolder.items[#currentFolder.items + 1] = obj
+			obj.Visible = currentFolder.open
+		end
+		return obj
+	end
+	local function mkFolder(text, open)
+		local f = { items = {}, open = open }
+		local b = mkBtn(farmPage, "", UDim2.new(), UDim2.new(1, 0, 0, 32), C(40, 100, 220))
+		b.TextSize = 14
+		local function refresh()
+			b.Text = (f.open and "[-] " or "[+] ") .. text
+			for _, it in ipairs(f.items) do it.Visible = f.open end
+		end
+		b.Activated:Connect(function()
+			f.open = not f.open
+			refresh()
+		end)
+		b.LayoutOrder = nextOrd()
+		refresh()
+		currentFolder = f
+		return f
 	end
 
 	local st = label(farmPage, "GUI OK", 12, UDim2.new(), UDim2.new(1, 0, 0, 16), C(140, 225, 255))
@@ -346,6 +378,7 @@ local function startKerjaHub()
 		local l = label(farmPage, "-- " .. text .. " --", 12, UDim2.new(), UDim2.new(1, 0, 0, 16), C(255, 225, 90))
 		l.LayoutOrder = nextOrd()
 		outline(l)
+		reg(l)
 		return l
 	end
 
@@ -366,6 +399,7 @@ local function startKerjaHub()
 			Size = UDim2.fromOffset(14, 14), Position = UDim2.fromOffset(2, 2), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
 		}, pill)
 		new("UICorner", { CornerRadius = UDim.new(1, 0) }, knob)
+		reg(row)
 		row.Activated:Connect(onClick)
 		switches[#switches + 1] = { text = text, get = getFn, lbl = lbl, pill = pill, knob = knob }
 	end
@@ -383,6 +417,7 @@ local function startKerjaHub()
 		local b = mkBtn(farmPage, text, UDim2.new(), UDim2.new(1, 0, 0, 34), color)
 		b.LayoutOrder = nextOrd()
 		b.TextSize = 13
+		reg(b)
 		b.Activated:Connect(onClick)
 		return b
 	end
@@ -392,6 +427,7 @@ local function startKerjaHub()
 		local a = mkBtn(holder, textA, UDim2.fromOffset(0, 0), UDim2.new(0.5, -3, 1, 0), colA)
 		local b = mkBtn(holder, textB, UDim2.new(0.5, 3, 0, 0), UDim2.new(0.5, -3, 1, 0), colB)
 		a.TextSize, b.TextSize = 12, 12
+		reg(holder)
 		a.Activated:Connect(onA)
 		b.Activated:Connect(onB)
 		return a, b
@@ -404,6 +440,7 @@ local function startKerjaHub()
 			BorderSizePixel = 0, LayoutOrder = nextOrd(),
 		}, farmPage)
 		accent(row, 1)
+		reg(row)
 		local lbl = label(row, text, 12, UDim2.fromOffset(10, 0), UDim2.new(1, -144, 1, 0), Color3.new(1, 1, 1))
 		lbl.TextYAlignment = Enum.TextYAlignment.Center
 		local minus = mkBtn(row, "-", UDim2.new(1, -132, 0.5, -12), UDim2.fromOffset(28, 24), C(60, 100, 190))
@@ -566,7 +603,7 @@ local function startKerjaHub()
 
 	local function toggleKurir()
 		kurirOn = not kurirOn
-		if kurirOn then baksoOn, pumpkinOn = false, false end
+		if kurirOn then baksoOn = false end
 		paint()
 		if not kurirOn then return end
 		kurirRun = kurirRun + 1
@@ -624,12 +661,12 @@ local function startKerjaHub()
 
 	local function toggleBakso()
 		baksoOn = not baksoOn
-		if baksoOn then kurirOn, pumpkinOn = false, false end
+		if baksoOn then kurirOn = false end
 		paint()
 	end
 
 	------------------------------------------------------------
-	-- MISI LABU: PenjagaLabu (TP + pencet prompt) -> PUMPKIN (TP + pencet prompt)
+	-- BANTU: kunjungi prompt (dipakai claim meme)
 	------------------------------------------------------------
 	-- kunjungi semua ProximityPrompt di dalam sebuah objek (TP ke objek, pindah kalau promptnya jauh)
 	local function visitPrompts(container)
@@ -657,141 +694,6 @@ local function startKerjaHub()
 			task.wait(delayAfter)
 		end
 		return n
-	end
-
-	------------------------------------------------------------
-	-- CARI LABU OTOMATIS (anak langsung workspace, tanpa pakai nomor index)
-	-- 1) workspace.PUMPKIN kalau ada
-	-- 2) nama / teks prompt mengandung "pumpkin" atau "labu"
-	-- 3) mirip "sidik jari" PUMPKIN (bentuk, ukuran, mesh, isi) yang dihafal saat PUMPKIN pernah terlihat
-	------------------------------------------------------------
-	local pumpkinSig, lastPumpkin = nil, nil
-
-	local function looksPumpkin(txt)
-		txt = string.lower(txt or "")
-		return string.find(txt, "pumpkin", 1, true) ~= nil or string.find(txt, "labu", 1, true) ~= nil
-	end
-
-	local function sigOf(obj)
-		local counts, keys = {}, {}
-		local mesh, ptext = nil, ""
-		local list = obj:GetDescendants()
-		list[#list + 1] = obj
-		for _, d in ipairs(list) do
-			counts[d.ClassName] = (counts[d.ClassName] or 0) + 1
-			if not mesh and (d:IsA("MeshPart") or d:IsA("SpecialMesh")) then
-				local ok, id = pcall(function() return d.MeshId end)
-				if ok and id and id ~= "" then mesh = id end
-			end
-			if ptext == "" and d:IsA("ProximityPrompt") then
-				ptext = string.lower((d.ActionText or "") .. "|" .. (d.ObjectText or ""))
-			end
-		end
-		for k, v in pairs(counts) do keys[#keys + 1] = k .. "=" .. v end
-		table.sort(keys)
-		local size = nil
-		if obj:IsA("Model") then
-			local ok, sz = pcall(function() return obj:GetExtentsSize() end)
-			if ok then size = sz end
-		elseif obj:IsA("BasePart") then
-			size = obj.Size
-		end
-		local sizeKey = size and string.format("%.1f,%.1f,%.1f", size.X, size.Y, size.Z) or nil
-		return {class = obj.ClassName, key = table.concat(keys, ";"), mesh = mesh, ptext = ptext, size = sizeKey}
-	end
-
-	local function scorePumpkin(c)
-		if c == workspace.Terrain or c == workspace.CurrentCamera then return 0 end
-		if Players:GetPlayerFromCharacter(c) then return 0 end
-		local sig = sigOf(c)
-		local score = 0
-		if looksPumpkin(c.Name) then score = score + 10 end
-		if sig.ptext ~= "" and looksPumpkin(sig.ptext) then score = score + 10 end
-		if pumpkinSig then
-			if sig.class == pumpkinSig.class then score = score + 1 end
-			if sig.key == pumpkinSig.key then score = score + 3 end
-			if sig.ptext ~= "" and sig.ptext == pumpkinSig.ptext then score = score + 3 end
-			if sig.size and sig.size == pumpkinSig.size then score = score + 5 end
-			if sig.mesh and sig.mesh == pumpkinSig.mesh then score = score + 6 end
-		end
-		return score
-	end
-
-	-- hasil: objek labu (atau nil), index-nya di workspace:GetChildren()
-	local function findPumpkin()
-		local exact = workspace:FindFirstChild("PUMPKIN")
-		if exact then
-			lastPumpkin = exact
-			pcall(function() pumpkinSig = sigOf(exact) end) -- hafal bentuknya
-			return exact
-		end
-		if lastPumpkin and lastPumpkin.Parent == workspace then return lastPumpkin end
-		local root = getRoot()
-		local best, bestScore, bestDist = nil, 0, math.huge
-		for _, c in ipairs(workspace:GetChildren()) do
-			local ok, sc = pcall(scorePumpkin, c)
-			if ok and sc >= 8 then -- minimal skor 8 biar tidak salah objek
-				local pos = posOf(c)
-				local dist = (root and pos) and (pos - root.Position).Magnitude or math.huge
-				if sc > bestScore or (sc == bestScore and dist < bestDist) then
-					best, bestScore, bestDist = c, sc, dist
-				end
-			end
-		end
-		lastPumpkin = best
-		return best
-	end
-
-	local function indexOfChild(obj)
-		for i, c in ipairs(workspace:GetChildren()) do
-			if c == obj then return i end
-		end
-		return nil
-	end
-
-	-- hafal bentuk PUMPKIN dari awal kalau sekarang ada
-	task.spawn(function()
-		local ex = workspace:FindFirstChild("PUMPKIN")
-		if ex then pcall(function() pumpkinSig = sigOf(ex) end) end
-	end)
-
-	local function pumpkinCycle()
-		waitPause()
-		local penjaga = workspace:FindFirstChild("PenjagaLabu")
-		if not penjaga then
-			st.Text = "Labu: PenjagaLabu tidak ketemu"
-			task.wait(1)
-			return
-		end
-		st.Text = "Labu: ke PenjagaLabu..."
-		local n = visitPrompts(penjaga)
-		if not pumpkinOn then return end
-		waitPause()
-		local pk = findPumpkin()
-		if not pk then
-			st.Text = "Labu: objek labu tidak ketemu"
-			task.wait(1)
-			return
-		end
-		st.Text = "Labu: ke " .. pk.Name .. " [#" .. tostring(indexOfChild(pk) or "?") .. "]..."
-		local m = visitPrompts(pk)
-		st.Text = "Labu: selesai (" .. m .. " prompt)"
-		task.wait(0.4)
-	end
-
-	local function togglePumpkin()
-		pumpkinOn = not pumpkinOn
-		if pumpkinOn then kurirOn, baksoOn = false, false end
-		paint()
-		if not pumpkinOn then return end
-		pumpkinRun = pumpkinRun + 1
-		local my = pumpkinRun
-		task.spawn(function()
-			while pumpkinOn and pumpkinRun == my do
-				pumpkinCycle()
-			end
-			if pumpkinRun == my then st.Text = "Misi labu OFF" end
-		end)
 	end
 
 	------------------------------------------------------------
@@ -881,7 +783,7 @@ local function startKerjaHub()
 	end)
 
 	local function stopAll()
-		kurirOn, baksoOn, pumpkinOn = false, false, false
+		kurirOn, baksoOn = false, false
 		paint()
 		st.Text = "Semua OFF"
 	end
@@ -889,17 +791,38 @@ local function startKerjaHub()
 	------------------------------------------------------------
 	-- susun tampilan
 	------------------------------------------------------------
+	-- MINIGAME HUB (paling atas)
+	local HUB_URL = "https://raw.githubusercontent.com/emirazkio38-prog/Minigame-hub-universal-Azk/main/MiniGame%20Hub"
+	local HUB_CODE = 'loadstring(game:HttpGet("' .. HUB_URL .. '"))()'
+	topMode, topOrd = true, -1000
+	mkFolder("MINIGAME HUB", false)
+	mkWide("EXECUTE MINIGAME HUB", C(60, 150, 90), function()
+		st.Text = "MiniGame Hub: memuat..."
+		task.spawn(function()
+			local ok, err = pcall(function()
+				loadstring(game:HttpGet(HUB_URL))()
+			end)
+			st.Text = ok and "MiniGame Hub: dijalankan" or ("MiniGame Hub gagal: " .. tostring(err))
+		end)
+	end)
+	mkWide("SALIN LOADSTRING MINIGAME HUB", C(190, 120, 40), function()
+		local fn = setclipboard or toclipboard or (Clipboard and Clipboard.set)
+		if typeof(fn) == "function" and pcall(fn, HUB_CODE) then
+			st.Text = "Loadstring MiniGame Hub disalin"
+		else
+			st.Text = "Executor tidak mendukung salin"
+		end
+	end)
+	currentFolder = nil
+	topMode = false
+
+	-- FARM
+	mkFolder("FARM", true)
 	section("KURIR")
 	mkSwitch("AUTO KURIR", function() return kurirOn end, toggleKurir)
 	section("BAKSO")
 	mkWide("TP GEROBAK (manual)", C(60, 120, 215), tpGerobak)
 	mkSwitch("AUTO LAYANI BAKSO", function() return baksoOn end, toggleBakso)
-	section("MISI LABU")
-	mkSwitch("AUTO MISI LABU", function() return pumpkinOn end, togglePumpkin)
-	mkWide("CEK OBJEK LABU", C(60, 150, 90), function()
-		local pk = findPumpkin()
-		st.Text = pk and ("Labu: " .. pk.Name .. " [#" .. tostring(indexOfChild(pk) or "?") .. "]") or "Labu: tidak ketemu"
-	end)
 	section("MEME")
 	mkWide("CLAIM MEME", C(190, 120, 40), function() task.spawn(claimMeme) end)
 	section("ANTI PAUSE")
@@ -909,6 +832,8 @@ local function startKerjaHub()
 	mkStepper("DELAY AKSI (dtk)", function() return delayAfter end, function(v) delayAfter = v end, 0.05, 5, 0.05)
 	section("GUI GAME")
 	mkPair("BUKA JOB GUI", C(70, 110, 200), function() openGui("JobGui") end, "TUTUP JOB GUI", C(190, 80, 90), function() closeGui("JobGui") end)
+
+	currentFolder = nil
 	mkWide("STOP SEMUA", C(170, 60, 60), stopAll)
 
 	RunService.Heartbeat:Connect(function()
